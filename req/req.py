@@ -1,5 +1,6 @@
-import urllib
+import base64
 import json
+import urllib
 
 
 def get(url, params=None, **kwargs):
@@ -34,18 +35,29 @@ def delete(url, **kwargs):
 
 
 def request(method, url, **kwargs):
-    kwargs = kwargs.copy()
-    unsupported = kwargs.keys() & {'cookies', 'files', 'auth', 'proxies', 'verify', 'stream', 'cert'}
+    unsupported = kwargs.keys() & {'cookies', 'files', 'proxies', 'verify', 'stream', 'cert'}
     if unsupported:
         raise Exception(f'{unsupported} is not supported.')
     if not kwargs.get('allow_redirects', True):
         raise Exception('allow_redirects must be True.')
 
+    purl = urllib.parse.urlparse(url)
+    auth = kwargs.get('auth')
+    if purl.username and purl.password:
+        host = purl.netloc.rsplit('@', 1)[-1]
+        auth = (purl.username, purl.password)
+        url = urllib.parse.urlunparse(purl._replace(netloc=host))
     if kwargs.get('params'):
         url = f'{url}?{urllib.parse.urlencode(kwargs["params"])}'
+
     req = urllib.request.Request(url)
+
     if kwargs.get('headers'):
         req.headers = kwargs['headers']
+
+    if auth:
+        req.headers['Authorization'] = 'Basic ' + base64.b64encode(f'{auth[0]}:{auth[1]}'.encode()).decode()
+
     if kwargs.get('data'):
         data = kwargs['data']
         if isinstance(data, dict):
