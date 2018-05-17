@@ -41,6 +41,8 @@ def request(method, url, **kwargs):
     if not kwargs.get('allow_redirects', True):
         raise Exception('allow_redirects must be True.')
 
+    headers = kwargs.get('headers') or {}
+
     purl = urllib.parse.urlparse(url)
     auth = kwargs.get('auth')
     if purl.username and purl.password:
@@ -50,27 +52,25 @@ def request(method, url, **kwargs):
     if kwargs.get('params'):
         url = f'{url}?{urllib.parse.urlencode(kwargs["params"])}'
 
-    req = urllib.request.Request(url)
-
-    if kwargs.get('headers'):
-        req.headers = kwargs['headers']
-
     if auth:
-        req.headers['Authorization'] = 'Basic ' + base64.b64encode(f'{auth[0]}:{auth[1]}'.encode()).decode()
+        headers['Authorization'] = 'Basic ' + base64.b64encode(f'{auth[0]}:{auth[1]}'.encode()).decode()
 
-    if kwargs.get('data'):
-        data = kwargs['data']
+    data = kwargs.get('data')
+    if data is not None:
+        if isinstance(data, str):
+            data = data.encode()
+        if isinstance(data, bytes):
+            headers['Content-Type'] = 'text/plain'
         if isinstance(data, dict):
             data = list(data.items())
-        if isinstance(data, bytes):
-            req.data = data
-        elif isinstance(data, list):
-            req.headers['Content-Type'] = 'application/x-www-form-urlencoded'
-            req.data = urllib.parse.urlencode(data, doseq=True)
+        if isinstance(data, list):
+            headers['Content-Type'] = 'application/x-www-form-urlencoded'
+            data = urllib.parse.urlencode(data, doseq=True).encode()
     elif kwargs.get('json') and kwargs['json'] is not None:
-        req.data = json.dumps(kwargs['json']).encode()
-        req.headers['Content-Type'] = 'application/json'
+        data = json.dumps(kwargs['json']).encode()
+        headers['Content-Type'] = 'application/json'
 
+    req = urllib.request.Request(url, data, headers, method=method.upper())
     try:
         kwargs = {k: v for k, v in kwargs.items() if k in {'timeout'}}
         with urllib.request.urlopen(req, **kwargs) as res:
