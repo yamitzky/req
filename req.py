@@ -1,6 +1,8 @@
 import base64
 import json
-import urllib
+import urllib.parse
+import urllib.request
+import urllib.error
 
 
 def get(url, params=None, **kwargs):
